@@ -3,35 +3,38 @@ import pandas as pd
 import numpy as np
 import datetime
 from matplotlib import dates as dts
-from matplotlib.dates import MO, TU, WE, TH, FR, SA, SU
+from matplotlib.dates import MO
 
 df = pd.read_csv('Data.csv', skiprows = 4, skipfooter = 6, engine='python')
-
-
-
 df = df[~df['Muscle Mass'].str.contains('-')]
 df = df[~df['Weight'].str.contains('-')]
 df = df[~df['Body Fat'].str.contains('-')]
-
+df = df.reset_index(drop = True)
 
 df = df.replace({
                     'Weight' : '[A-Za-z]',
                     'Body Fat': '%',
                     'Muscle Mass': '%'
 
-}, '', regex = True
-)
+}, '', regex = True)
 
 
 convert_dict = {'Weight': float,
                 'Body Fat': float,
                 'Muscle Mass': float
                }
-
 df = df.astype(convert_dict)
 
-dates =  pd.to_datetime(pd.to_datetime(df['Date']).dt.date)
 
+
+df['Date'] = pd.to_datetime(pd.to_datetime(df['Date']).dt.date)
+
+while len(df['Date'])/7 != len(df['Date'])//7:
+    index = list(df['Date'].duplicated(keep = 'last')).index(True)
+    df = df.drop(index)
+    df = df.reset_index(drop = True)
+
+dates = df['Date']
 weight = np.array(df['Weight'])
 body_fat = np.array(df['Body Fat'])
 muscle_mass = np.array(df['Muscle Mass'])
@@ -52,7 +55,11 @@ weight_max_index = list(weight).index(weight_max)
 weight_min_index = list(weight).index(weight_min)
 
 
-dates_week = np.median(np.array_split(dates.dt.week, len(dates)//7), axis = 1)
+actual_muscle_mass = muscle_mass/100*weight
+actual_body_fat = body_fat/100*weight
+
+
+dates_week = np.mean(np.array_split(dates.dt.week, len(dates)//7), axis = 1).astype(int)
 muscle_median = np.median(np.array_split(muscle_mass, len(muscle_mass)//7), axis = 1)
 fat_median = np.median(np.array_split(body_fat, len(body_fat)//7), axis = 1)
 weight_median = np.median(np.array_split(weight, len(weight)//7), axis = 1)
@@ -155,6 +162,37 @@ loc = dts.WeekdayLocator(byweekday=MO)
 ax1.xaxis.set_major_locator(loc)
 
 ax1.grid()
+
+
+
+plt.figure(3)
+
+fig, ax1 = plt.subplots(figsize = (10,6))
+ax2 = ax1.twinx()
+ax1.set_title('Actual Body Fat and Muscle Mass')
+
+ax1.plot(dates, actual_body_fat, label = 'Body fat in kg', color = 'lightsalmon')
+ax1.tick_params(axis = 'y', colors = 'lightsalmon')
+
+ax2.plot(dates, actual_muscle_mass, label = 'Muscle Mass in kg', color = 'blue')
+ax2.tick_params(axis = 'y', colors = 'blue')
+
+fig.legend(title = 'Legend',
+            bbox_to_anchor = (0.75, 0.8)
+
+)
+plt.tight_layout()
+fig.autofmt_xdate()
+myFmt = dts.DateFormatter("%d/%m")
+ax1.xaxis.set_major_formatter(myFmt)
+
+loc = dts.WeekdayLocator(byweekday=MO)
+ax1.xaxis.set_major_locator(loc)
+
+ax1.grid()
+
+
+
 
 
 plt.show()
